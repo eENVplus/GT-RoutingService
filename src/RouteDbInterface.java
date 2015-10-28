@@ -1,13 +1,8 @@
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -16,24 +11,72 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 
-import javax.swing.text.Document;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactoryConfigurationError;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathFactory;
-
-import org.postgis.*; 
-import org.xml.sax.SAXException;
-
-public class RouteDbConnection {
+public class RouteDbInterface {
 	
    private Connection mainconn = null;
    String lifeDatasetsLSIntervention = "Life:landslide_I_RL";
    String lifeDatasetsLSHazard = "Life:landslide_H_RL";
-	
+
+   public class Route
+   {
+	   double sourceX;
+	   double sourceY;
+	   double targetX;
+	   double targetY; 
+	   int modality;
+	   //length of the path
+	   double length =0;
+	   //hypotetical time spent to cross the path
+	   double time = 0;
+	   int startNode=0;
+	   int arrivalNode = 0;
+	   String path = "";
+	   Route(double sourcex,double sourcey,double targetx,double targety,int modality)
+	   {
+		   this.sourceX = sourcex;
+		   this.sourceY = sourcey;
+		   this.targetX = targetx;
+		   this.targetY = targety;
+		   this.modality = modality; 
+	   }
+	   public void setTime(double time)
+	   {
+		   this.time = time;
+	   }
+	   public double getTime()
+	   {
+		   return this.time;
+	   }
+	   
+	   public void setLength(double length)
+	   {
+		   this.length = length;
+	   }
+	   public double getLength()
+	   {
+		   return this.length;
+	   }
+	   public int getArrivalNode()
+	   {
+		   return this.arrivalNode;
+	   }
+	   public void setArrivalNode(int arrivalNd)
+	   {
+		   this.arrivalNode= arrivalNd;
+	   }
+	   
+	   public int getStartingNode()
+	   {
+		   return this.startNode;
+	   }
+	   public void setStartingNode(int startNd)
+	   {
+		   this.startNode= startNd;
+	   }
+   
+   } 
+   
+   
    class StreetBranch
    {
 	   double sourceX;
@@ -99,7 +142,7 @@ public class RouteDbConnection {
    
    //TODO: Input the database table name
    
-   public RouteDbConnection()
+   public RouteDbInterface()
    {
 	   getConnection();
 	   
@@ -107,89 +150,10 @@ public class RouteDbConnection {
    }
    
    
-   public static void main(String args[]) throws SQLException, IOException, ParserConfigurationException, SAXException, TransformerFactoryConfigurationError, TransformerException {
-	  
-	  
-	  String getFeatURL = "http://lifeimagine.graphitech-projects.com/geoserver/Life/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=";
-	  RouteDbConnection rdbconn = new  RouteDbConnection();
-	  
-	  //add record retrieved from GML wfs to table frane e pericolofrane 
-	  //rdbconn.recordLandSlideonDB(rdbconn.requestGetFeatureXML(getFeatURL+ rdbconn.lifeDatasetsLSIntervention));
-	  //rdbconn.recordLandSlideonDB(rdbconn.requestGetFeatureXML(getFeatURL+ rdbconn.lifeDatasetsLSHazard));
-	  
-	  //double pointalat = 44.1472;
-	  //double pointalong = 9.6862;
-	   
-	   
-	  double pointalat = 44.1382; //node 46837
-	  double pointalong = 9.6943; //node 33834
-	  double pointblat = 44.1145;
-	  double pointblong = 9.8377;
-	  
-	  //FileInputStream fis = new FileInputStream("/home/giulio/Dropbox/Public/liferouting/avoidthis.json");
-	  //InputStreamReader in = new InputStreamReader(fis, "UTF-8"); 
-	  byte[] encoded = Files.readAllBytes(Paths.get("/home/giulio/Dropbox/Public/liferouting/map.json"));
-	  String geoJsonAvoid = new String(encoded, "UTF-8");
-	  
-	  byte[] encodedPos = Files.readAllBytes(Paths.get("/home/giulio/Downloads/zaklCfHV"));
-	  String jsonPos = new String(encodedPos, "UTF-8");
-	  
-	  String splitSRC = jsonPos.split(";")[0];
-	  String source =splitSRC.split("source:")[1];
-	  pointalat = Double.parseDouble(source.split(",")[0]);
-	  pointalong = Double.parseDouble(source.split(",")[1]);
-	  
-	  String splitTRGT = jsonPos.split(";")[1];
-	  String target = splitTRGT.split("target: ")[1];
-	  pointblat = Double.parseDouble(target.split(",")[0]);
-	  pointblong = Double.parseDouble(target.split(",")[1]);
-	  
-	  
-	  String route = rdbconn.routeFromAtoB(pointalat,pointalong,pointblat,pointblong);
-	  //System.out.println(route);
-	  String geoJSONNoModal = 	rdbconn.graphRouteFromAtoB(pointalat,pointalong,pointblat,pointblong) ;
-	  System.out.println("routing pedestrian");
-	  String geoJSONPedestrian = 	rdbconn.graphRouteModalFromAtoB(pointalat,pointalong,pointblat,pointblong,3) ;
-	  System.out.println("hgv routing");
-	  String geoJSONHGV = 	rdbconn.graphRouteModalFromAtoB(pointalat,pointalong,pointblat,pointblong,5) ;
-	  //String geoJSON = rdbconn.geoJSONfromNodes(10953, 2112);
-	  
-	  String geoJSONAvoid = rdbconn.graphRouteAvoidLSFromAtoB(pointalat, pointalong, pointblat, pointblong, 0);
-	  String geoJSONAvoidJSON = rdbconn.graphRouteAvoidGeoJSONFromAtoB(pointalat, pointalong, pointblat, pointblong, 0,geoJsonAvoid);
-	  
-	  
-	  PrintWriter writer_nomod = new PrintWriter("/home/giulio/Dropbox/Public/liferouting/routenomod.json", "UTF-8");
-	  writer_nomod.println(geoJSONNoModal);
-	  writer_nomod.close();
-	  
-	  PrintWriter writer_ped = new PrintWriter("/home/giulio/Dropbox/Public/liferouting/routeped.json", "UTF-8");
-	  writer_ped.println(geoJSONPedestrian);
-	  writer_ped.close();
-	  
-	  PrintWriter writer_hgv = new PrintWriter("/home/giulio/Dropbox/Public/liferouting/routehgv.json", "UTF-8");
-	  writer_hgv.println(geoJSONHGV);
-	  writer_hgv.close();
-	  
-	  PrintWriter writer_avoid = new PrintWriter("/home/giulio/Dropbox/Public/liferouting/routeavoid.json", "UTF-8");
-	  writer_avoid.println(geoJSONAvoid);
-	  writer_avoid.close();
-	  
-	  PrintWriter writer_avoidjson = new PrintWriter("/home/giulio/Dropbox/Public/liferouting/routeavoidjson.json", "UTF-8");
-	  writer_avoidjson.println(geoJSONAvoidJSON);
-	  writer_avoidjson.close();
-	
-      
-   }
-   
-   
-   public void testConnection()
-   {
-	   
-	   
-   } 
-   
    //TODO: different typology of routing algorithm
    //TODO: Routing for different types of vehicle 
+    
+   
    
    
    public String routeFromAtoB(String A_lat,String A_long,String B_lat,String B_long) throws SQLException 
@@ -259,7 +223,26 @@ public class RouteDbConnection {
 	   System.out.println(nodeA);
 	   int nodeB = this.getNearestNode(Blat,Blong );
 	   System.out.println(nodeB);
-	   geoJSONresult = geoJSONAvoidStoredLSfromNodes(nodeA,nodeB);
+	   if (modality == 0)
+		   geoJSONresult = geoJSONAvoidStoredLSfromNodes(nodeA,nodeB);
+	   else
+		   geoJSONresult = geoJSONAvoidStoredLSfromNodes(nodeA,nodeB,modality);
+	   return geoJSONresult;
+   }
+   
+   public String graphRouteAvoidLSFromAtoB(double Alat,double Along,double Blat,double Blong,int modality,int type) throws SQLException
+   {
+	   String geoJSONresult = null ;
+	   int nodeA = this.getNearestNode(Alat,Along );
+	   System.out.println(nodeA);
+	   int nodeB = this.getNearestNode(Blat,Blong );
+	   System.out.println(nodeB);
+	   if (modality == 0)
+		   geoJSONresult = geoJSONAvoidStoredLSfromNodes(nodeA,nodeB);
+	   else if (type==0)
+		   geoJSONresult = geoJSONAvoidStoredLSfromNodes(nodeA,nodeB,modality);
+	   else
+		   geoJSONresult = geoJSONAvoidStoredLSfromNodes(nodeA,nodeB,modality,type,0);
 	   return geoJSONresult;
    }
    
@@ -298,6 +281,100 @@ public class RouteDbConnection {
 	   return this.mainconn;
    }
    
+   public Route getRouteFromCoords(double Alat,double Along,double Blat,double Blong,int mod) throws SQLException
+   {
+	   Route rt = new Route(Alat,Along,Blat,Blong,mod);
+	   rt.setArrivalNode(this.getTargetNearestNode(Blat, Blong));
+	   rt.setStartingNode(this.getNearestNode(Alat,Along));
+	   
+	   int nodeA = rt.getStartingNode();
+	   int nodeB = rt.getArrivalNode();
+	   
+	   String cost_mod =setCost(mod);
+	   String sql;
+	   if (mod==3)
+		  sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name,km,km/7 as time FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,km,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, false, false) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+	   else if (mod==0)
+		   // sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, true) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+		   sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name,km,km/kmh AS time  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,km,  rl_2po_4pgr.cost::double precision,rl_2po_4pgr.reverse_cost::double precision AS reverse_cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, true) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+	   else if (mod==4)
+		   // sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, true) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+		   sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name,km,km/20 AS time  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,km,rl_2po_4pgr.cost::double precision * c." + cost_mod + " as cost,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS reverse_cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, true) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+	   else
+		   sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name,km,km/kmh AS time  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,km,rl_2po_4pgr.cost::double precision * c." + cost_mod + " as cost ,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS reverse_cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, true) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+	   System.out.println(sql);
+	   PreparedStatement ps = this.mainconn.prepareStatement(sql);
+	   ps.setInt(1,nodeA);
+	   ps.setInt(2,nodeB);
+	  
+	   ResultSet rs = ps.executeQuery();
+	   Route route = this.readDataRecord(rs, rt);
+	   //rt.setLength(this.totlengthFromRecords(rs));
+	   //rt.path = this.createGeoJSONfromRecords(rs);
+	   //rt.setTime(this.totTimeFromRecords(rs));
+	   return route;
+   }
+   
+   private Route readDataRecord(ResultSet rs,Route route) throws NumberFormatException, SQLException
+   {
+	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
+	   double tottime = 0;
+	   double totlength = 0;
+	   while ( rs.next() ) {
+	          
+	          String  node = rs.getString("node");
+	          String  edge = rs.getString("edge");
+	          tottime = tottime + rs.getDouble("time");
+	          totlength = totlength + rs.getDouble("km");
+	          int node_num = Integer.parseInt(node);
+	          int edge_num = Integer.parseInt(edge);
+	          String sqlgeoJSON = "SELECT ST_AsGeoJSON(geom_way) FROM rl_2po_4pgr WHERE source = ? AND id = ? UNION SELECT ST_AsGeoJSON(ST_Reverse(geom_way)) FROM rl_2po_4pgr WHERE target = ? AND id = ?;";
+	          PreparedStatement psgeoJSON = this.mainconn.prepareStatement(sqlgeoJSON);
+	          psgeoJSON.setInt(1,node_num);
+	          psgeoJSON.setInt(2,edge_num);
+	          psgeoJSON.setInt(3,node_num);
+	          psgeoJSON.setInt(4,edge_num);
+	          ResultSet rsgeoJSON = psgeoJSON.executeQuery();
+	          while (rsgeoJSON.next())
+	          {
+	        	if (!rs.isFirst())
+	        		geoJSON = geoJSON + ",";
+	       	   	String JSONstreet = rsgeoJSON.getString("st_asgeojson");
+	       	   	geoJSON = geoJSON + JSONstreet;
+	       	   	
+	          }
+	          rsgeoJSON.close();
+	          psgeoJSON.close();
+	       }
+	   geoJSON = geoJSON + " ] }";
+	   route.path = geoJSON;
+	   route.setLength(totlength);
+	   route.setTime(tottime);
+	   return route;
+   }
+   /*
+   public Route getRouteAvoidLSFromCoords(double Alat,double Along,double Blat,double Blong,int mod,int type )
+   {
+	   
+	   
+	   
+	   
+   }
+   
+   public Route getRouteAvoidJSON(double Alat,double Along,double Blat,double Blong,int mod,String json)
+   {
+	   
+	   
+	   
+	   
+   }
+   
+   public Route getRouteAvoidGML(double Alat,double Along,double Blat,double Blong,int mod,String gml)
+   {
+	   
+	   
+   }
+   */
    //TODO. try catch stuff
    private int getNearestNode(double latitude ,double longitude) throws SQLException
    {
@@ -350,15 +427,24 @@ public class RouteDbConnection {
    //TODO. try catch stuff
    private String geoJSONfromNodes(int nodeA,int nodeB) throws SQLException
    {
-	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
+	   String geoJSON ;
 	   String sql = "SELECT seq, id1 AS node, id2 AS edge,cost FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,cost::double precision AS cost FROM rl_2po_4pgr',?, ?, false, false) ;";
 	   PreparedStatement ps = this.mainconn.prepareStatement(sql);
 	   ps.setInt(1,nodeA);
 	   ps.setInt(2,nodeB);
 	   ResultSet rs = ps.executeQuery();
+	   geoJSON = createGeoJSONfromRecords(rs);
+	   ps.close();
+	   rs.close();
+	   return geoJSON;
 	   
+   }
+   
+   private String createGeoJSONfromRecords(ResultSet rs) throws NumberFormatException, SQLException
+   {
+	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
 	   while ( rs.next() ) {
-	          int id = rs.getInt("seq");
+	          
 	          String  node = rs.getString("node");
 	          String  edge = rs.getString("edge");
 	          int node_num = Integer.parseInt(node);
@@ -370,43 +456,72 @@ public class RouteDbConnection {
 	          psgeoJSON.setInt(3,node_num);
 	          psgeoJSON.setInt(4,edge_num);
 	          ResultSet rsgeoJSON = psgeoJSON.executeQuery();
-	          
 	          while (rsgeoJSON.next())
 	          {
+	        	if (!rs.isFirst())
+	        		geoJSON = geoJSON + ",";
 	       	   	String JSONstreet = rsgeoJSON.getString("st_asgeojson");
-	       	   	if (rs.isLast())
-	       	   		geoJSON = geoJSON + JSONstreet;
-	       	   	else
-	       	   		geoJSON = geoJSON + JSONstreet +",";
+	       	   	geoJSON = geoJSON + JSONstreet;
+	       	   	
 	          }
-	          //float salary = rs.getFloat("salary");
 	          rsgeoJSON.close();
 	          psgeoJSON.close();
 	       }
 	   geoJSON = geoJSON + " ] }";
-	   ps.close();
-	   rs.close();
 	   return geoJSON;
 	   
+	   
    }
+   
+   private double totlengthFromRecords(ResultSet rs) throws NumberFormatException, SQLException
+   {
+	   double totlength= 0;
+	   while ( rs.next() ) { 
+	         double  km = rs.getDouble("km");
+	         System.out.println(totlength);
+	         totlength = km +totlength;
+	       }
+	   return totlength;
+	   
+	   
+   }
+   
+   private double totTimeFromRecords(ResultSet rs) throws NumberFormatException, SQLException
+   {
+	   double time = 0;
+	   while ( rs.next() ) {
+	          
+	          double  timeforsegment = rs.getDouble("time");
+	          System.out.println(timeforsegment);
+	          time = time + timeforsegment; 
+	       }
+	   return time;
+   }
+   
    //TODO. try catch stuff
    private String geoJSONfromNodes(int nodeA,int nodeB,int modality) throws SQLException
    {
-	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
+	   //String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
 	   
-	   updateCost(modality);
-	   
+	   String cost_mod =setCost(modality);
 	   
 	   String sql;
+	   
 	   if (modality==3)
-		  sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c.cost AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, false, false) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+		  sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost,km/10 AS time,km, x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, false, false) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+	   else  if (modality==4)
+		   // sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, true) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+		   sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost,km,km/20 as time x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, false, false) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
 	   else
-		   sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost, x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,rl_2po_4pgr.cost::double precision * c.cost AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, true, false) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+		   sql = "SELECT seq, id1 AS node, id2 AS edge, route.cost,km,km/kmh AS time x1, y1, x2, y2, osm_name  FROM pgr_dijkstra('SELECT id AS id,source::integer,target::integer,km,kmh,rl_2po_4pgr.cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr, classes c WHERE rl_2po_4pgr.clazz = c.clazz',?, ?, false, false) as route join rl_2po_4pgr on rl_2po_4pgr.id = route.id2;";
+	   System.out.println(sql);
 	   PreparedStatement ps = this.mainconn.prepareStatement(sql);
 	   ps.setInt(1,nodeA);
 	   ps.setInt(2,nodeB);
+	  
 	   ResultSet rs = ps.executeQuery();
-	   
+	   String geoJSON = createGeoJSONfromRecords(rs);
+	    /*
 	   while ( rs.next() ) {
 	          int id = rs.getInt("seq");
 	          String  node = rs.getString("node");
@@ -432,12 +547,13 @@ public class RouteDbConnection {
 	          psgeoJSON.close();
 	       }
 	   geoJSON = geoJSON + " ] }";
+	   */
 	   ps.close();
 	   rs.close();
 	   return geoJSON;
 	   
    }
-   private void updateCost(int modality) throws SQLException
+   private String setCost(int modality)
    {
 	   String sqlUpdate="";
 	   switch(modality)
@@ -446,91 +562,44 @@ public class RouteDbConnection {
 	   		break;
 	   	//car not avoiding pedestrian or bicycle	
 	   	case 1:	
-	   		sqlUpdate = "UPDATE classes SET cost=1 ;UPDATE classes SET cost=2.0 WHERE name IN ('pedestrian','steps','footway');UPDATE classes SET cost=1.5 WHERE name IN ('cicleway','living_street','path');UPDATE classes SET cost=0.8 WHERE name IN ('secondary','tertiary');UPDATE classes SET cost=0.6 WHERE name IN ('primary','primary_link');UPDATE classes SET cost=0.4 WHERE name IN ('trunk','trunk_link');UPDATE classes SET cost=0.3 WHERE name IN ('motorway','motorway_junction','motorway_link');";
+	   		sqlUpdate = "cost";
 	   		
 	   		break;
 	   	//Car avoiding pedestrian and bicycle
 	   	case 2:
-	   		sqlUpdate =  "UPDATE classes SET cost=1 ;UPDATE classes SET cost=100000 WHERE name IN ('pedestrian','steps','footway');UPDATE classes SET cost=100000 WHERE name IN ('cicleway','living_street','path');UPDATE classes SET cost=0.6 WHERE name IN ('secondary','tertiary');UPDATE classes SET cost=0.4 WHERE name IN ('primary','primary_link');UPDATE classes SET cost=0.3 WHERE name IN ('trunk','trunk_link');UPDATE classes SET cost=0.2 WHERE name IN ('motorway','motorway_junction','motorway_link');";
+	   		sqlUpdate =  "cost_car";
 	   		break;
 	   	//Pedestrian
 	   	case 3:
-            sqlUpdate = "UPDATE classes SET cost=1 ;"
-            		+ "UPDATE classes SET cost=0.1 WHERE name IN ('pedestrian','steps','footway');"
-            		+ "UPDATE classes SET cost=0.2 WHERE name IN ('cicleway','living_street','path');"
-            		+ "UPDATE classes SET cost=0.3 WHERE name IN ('tertiary');"
-            		+ "UPDATE classes SET cost=0.5 WHERE name IN ('secondary');"
-            		+ "UPDATE classes SET cost=2.0 WHERE name IN ('primary','primary_link');"
-            		+ "UPDATE classes SET cost=5 WHERE name IN ('trunk','trunk_link');"
-            		+ "UPDATE classes SET cost=100000 WHERE name IN ('motorway','motorway_junction','motorway_link');";
+            sqlUpdate = "cost_pedestrian";
             break;
 	   	//bicycle
 	   	case 4:
-            sqlUpdate = "UPDATE classes SET cost=1 ;"
-            		+ "UPDATE classes SET cost=0.3 WHERE name IN ('pedestrian','steps','footway');"
-            		+ "UPDATE classes SET cost=0.1 WHERE name IN ('cicleway','living_street','path');"
-            		+ "UPDATE classes SET cost=0.3 WHERE name IN ('tertiary');"
-            		+ "UPDATE classes SET cost=0.5 WHERE name IN ('secondary');"
-            		+ "UPDATE classes SET cost=1.5 WHERE name IN ('primary','primary_link');"
-            		+ "UPDATE classes SET cost=5 WHERE name IN ('trunk','trunk_link');"
-            		+ "UPDATE classes SET cost=100000 WHERE name IN ('motorway','motorway_junction','motorway_link');";
+            sqlUpdate = "cost_bicycle";
             break;
         //heavy goods vehicle
 	   	case 5:
-	   		sqlUpdate =  "UPDATE classes SET cost=1 ;"
-            		+ "UPDATE classes SET cost=100000 WHERE name IN ('pedestrian','steps','footway');"
-            		+ "UPDATE classes SET cost=100000 WHERE name IN ('cicleway','living_street','path');"
-            		+ "UPDATE classes SET cost=4 WHERE name IN ('tertiary');"
-            		+ "UPDATE classes SET cost=1.5 WHERE name IN ('secondary');"
-            		+ "UPDATE classes SET cost=1.0 WHERE name IN ('primary','primary_link');"
-            		+ "UPDATE classes SET cost=0.6 WHERE name IN ('trunk','trunk_link');"
-            		+ "UPDATE classes SET cost=0.2 WHERE name IN ('motorway','motorway_junction','motorway_link');";
+	   		sqlUpdate =  "cost_hgv";
             break;
+        default:
+        	sqlUpdate = "cost";
 	   		
 	   }
-	   PreparedStatement psupd = this.mainconn.prepareStatement(sqlUpdate);
-	   psupd.executeUpdate();
-	   psupd.close();
+	   return sqlUpdate;
 	   
    }
    
    private String geoJSONAvoidStoredLSfromNodes(int nodeA,int nodeB) throws SQLException
    {
 	   
-	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
+	   String geoJSON;
 	   //String sql = "SELECT seq, id1 AS node, id2 AS edge, cost, x1, y1, x2, y2 FROM pgr_dijkstra('SELECT osm_id AS id,source::integer,target::integer,cost::double precision AS cost FROM rl_2po_4pgr as roads  left join frane as ls ',45254, 32937, true, false)FROM public."ways" as roads left join on public."BarrierPolygon" as barrier on ST_Intersects(roads.geom, barrier.geom_polygon)where barrier.id_0 is null'' , '|| source || ', '|| target || ' , false, false), '|| 'public."ways" WHERE id2 = id ORDER BY seq;SELECT DISTINCT dip.id,dip.s,dip.t FROM (SELECT ST_Intersects(rl_2po_4pgr.geom_way,frane.geom) as inters ,rl_2po_4pgr.id,rl_2po_4pgr.source as s,rl_2po_4pgr.target as t FROM rl_2po_4pgr,frane)AS dip WHERE dip.inters= 't' ;   ";
 	   String sql = "SELECT seq, id1 AS node, id2 AS edge, cost FROM pgr_dijkstra('SELECT roads.id AS id,source::integer,target::integer,cost::double precision AS cost FROM rl_2po_4pgr as roads  left join frane as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
 	   PreparedStatement ps = this.mainconn.prepareStatement(sql);
 	   ps.setInt(1,nodeA);
 	   ps.setInt(2,nodeB);
 	   ResultSet rs = ps.executeQuery();
-	   
-	   while ( rs.next() ) {
-	          int id = rs.getInt("seq");
-	          String  node = rs.getString("node");
-	          String  edge = rs.getString("edge");
-	          int node_num = Integer.parseInt(node);
-	          int edge_num = Integer.parseInt(edge);
-	          String sqlgeoJSON = "SELECT ST_AsGeoJSON(geom_way) FROM rl_2po_4pgr WHERE source = ? AND id = ? UNION SELECT ST_AsGeoJSON(ST_Reverse(geom_way)) FROM rl_2po_4pgr WHERE target = ? AND id = ?;";
-	          PreparedStatement psgeoJSON = this.mainconn.prepareStatement(sqlgeoJSON);
-	          psgeoJSON.setInt(1,node_num);
-	          psgeoJSON.setInt(2,edge_num);
-	          psgeoJSON.setInt(3,node_num);
-	          psgeoJSON.setInt(4,edge_num);
-	          ResultSet rsgeoJSON = psgeoJSON.executeQuery();
-	          while (rsgeoJSON.next())
-	          {
-	       	   	String JSONstreet = rsgeoJSON.getString("st_asgeojson");
-	       	   	if (rs.isLast())
-	       	   		geoJSON = geoJSON + JSONstreet;
-	       	   	else
-	       	   		geoJSON = geoJSON + JSONstreet +",";
-	          }
-	          //float salary = rs.getFloat("salary");
-	          rsgeoJSON.close();
-	          psgeoJSON.close();
-	       }
-	   geoJSON = geoJSON + " ] }";
+	   geoJSON = createGeoJSONfromRecords(rs);
 	   ps.close();
 	   rs.close();
 	   return geoJSON;
@@ -539,41 +608,90 @@ public class RouteDbConnection {
    
    private String geoJSONAvoidStoredLSfromNodes(int nodeA,int nodeB,int modality) throws SQLException
    {
-	   updateCost(modality);
-	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
+	   String cost_mod = setCost(modality);
+	   String geoJSON ;
 	   //String sql = "SELECT seq, id1 AS node, id2 AS edge, cost, x1, y1, x2, y2 FROM pgr_dijkstra('SELECT osm_id AS id,source::integer,target::integer,cost::double precision AS cost FROM rl_2po_4pgr as roads  left join frane as ls ',45254, 32937, true, false)FROM public."ways" as roads left join on public."BarrierPolygon" as barrier on ST_Intersects(roads.geom, barrier.geom_polygon)where barrier.id_0 is null'' , '|| source || ', '|| target || ' , false, false), '|| 'public."ways" WHERE id2 = id ORDER BY seq;SELECT DISTINCT dip.id,dip.s,dip.t FROM (SELECT ST_Intersects(rl_2po_4pgr.geom_way,frane.geom) as inters ,rl_2po_4pgr.id,rl_2po_4pgr.source as s,rl_2po_4pgr.target as t FROM rl_2po_4pgr,frane)AS dip WHERE dip.inters= 't' ;   ";
-	   String sql = "SELECT seq, id1 AS node, id2 AS edge, cost FROM pgr_dijkstra('SELECT roads.id AS id,source::integer,target::integer,cost::double precision AS cost FROM rl_2po_4pgr as roads  left join frane as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
+	   String sql = "SELECT seq, id1 AS node, id2 AS edge, cost FROM pgr_dijkstra('SELECT roads.id AS id,source::integer,target::integer,cost::double precision * c." + cost_mod + " AS cost FROM rl_2po_4pgr as roads  left join frane as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
+	   //possible change of way in which stree are weighted
+	   System.out.println(sql);
 	   PreparedStatement ps = this.mainconn.prepareStatement(sql);
 	   ps.setInt(1,nodeA);
 	   ps.setInt(2,nodeB);
 	   ResultSet rs = ps.executeQuery();
+	   geoJSON = createGeoJSONfromRecords(rs);
+	   ps.close();
+	   rs.close();
+	   return geoJSON;
 	   
-	   while ( rs.next() ) {
-	          int id = rs.getInt("seq");
-	          String  node = rs.getString("node");
-	          String  edge = rs.getString("edge");
-	          int node_num = Integer.parseInt(node);
-	          int edge_num = Integer.parseInt(edge);
-	          String sqlgeoJSON = "SELECT ST_AsGeoJSON(geom_way) FROM rl_2po_4pgr WHERE source = ? AND id = ? UNION SELECT ST_AsGeoJSON(ST_Reverse(geom_way)) FROM rl_2po_4pgr WHERE target = ? AND id = ?;";
-	          PreparedStatement psgeoJSON = this.mainconn.prepareStatement(sqlgeoJSON);
-	          psgeoJSON.setInt(1,node_num);
-	          psgeoJSON.setInt(2,edge_num);
-	          psgeoJSON.setInt(3,node_num);
-	          psgeoJSON.setInt(4,edge_num);
-	          ResultSet rsgeoJSON = psgeoJSON.executeQuery();
-	          while (rsgeoJSON.next())
-	          {
-	       	   	String JSONstreet = rsgeoJSON.getString("st_asgeojson");
-	       	   	if (rs.isLast())
-	       	   		geoJSON = geoJSON + JSONstreet;
-	       	   	else
-	       	   		geoJSON = geoJSON + JSONstreet +",";
-	          }
-	          //float salary = rs.getFloat("salary");
-	          rsgeoJSON.close();
-	          psgeoJSON.close();
-	       }
-	   geoJSON = geoJSON + " ] }";
+   }
+   
+   private String geoJSONAvoidStoredLSfromNodes(int nodeA,int nodeB,int modality,int type,int lsTab) throws SQLException
+   {
+	   String cost_mod = setCost(modality);
+	   String geoJSON ;
+	   PreparedStatement ps; 
+	   if (lsTab==0)
+	   {
+		   //String sql = "SELECT seq, id1 AS node, id2 AS edge, cost, x1, y1, x2, y2 FROM pgr_dijkstra('SELECT osm_id AS id,source::integer,target::integer,cost::double precision AS cost FROM rl_2po_4pgr as roads  left join frane as ls ',45254, 32937, true, false)FROM public."ways" as roads left join on public."BarrierPolygon" as barrier on ST_Intersects(roads.geom, barrier.geom_polygon)where barrier.id_0 is null'' , '|| source || ', '|| target || ' , false, false), '|| 'public."ways" WHERE id2 = id ORDER BY seq;SELECT DISTINCT dip.id,dip.s,dip.t FROM (SELECT ST_Intersects(rl_2po_4pgr.geom_way,frane.geom) as inters ,rl_2po_4pgr.id,rl_2po_4pgr.source as s,rl_2po_4pgr.target as t FROM rl_2po_4pgr,frane)AS dip WHERE dip.inters= 't' ;   ";
+		   String sql = "SELECT seq, id1 AS node, id2 AS edge, cost FROM pgr_dijkstra('SELECT roads.id AS id,source::integer,target::integer,cost::double precision" ;
+		   String sqlSuffix = "AS cost FROM rl_2po_4pgr as roads  left join frane as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
+		   String sqlSuffixType =  "AS cost FROM rl_2po_4pgr as roads  left join (SELECT * from frane where tipo=?) as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
+		   String sqlfinal = sql; 		
+		   if (type ==0)
+		   		{
+			   		if (modality == 0)
+			   			sqlfinal.concat(sqlSuffix);
+			   			//sqlfinal=sqlfinal + sqlSuffix;
+			   		else
+			   			sqlfinal.concat( " * c." + cost_mod + " "+sqlSuffix);
+			   		ps = this.mainconn.prepareStatement(sqlfinal);
+		   			ps.setInt(1,nodeA);
+		   			ps.setInt(2,nodeB);
+		   		}
+		   		else
+		   		{
+		   			if (modality == 0)
+			   			sqlfinal.concat(sqlSuffix);
+		   			else
+			   			sqlfinal.concat( " * c." + cost_mod + " "+ sqlSuffixType);
+		   			ps = this.mainconn.prepareStatement(sqlfinal);
+		   			ps.setInt(2,nodeA);
+		   			ps.setInt(3,nodeB); 
+		   			ps.setInt(1,type);
+		   		}
+	   	
+	  }
+	   else
+	   {
+		   String sql = "SELECT seq, id1 AS node, id2 AS edge, cost FROM pgr_dijkstra('SELECT roads.id AS id,source::integer,target::integer,cost::double precision" ;
+		   String sqlSuffix ="AS cost FROM rl_2po_4pgr as roads  left join pericolo_frane as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
+		   String sqlSuffixType = "AS cost FROM rl_2po_4pgr as roads  left join (SELECT * from pericolo_frane where tipo=?) as f ON ST_Intersects(roads.geom_way,f.geom) WHERE f.id IS NULL ',?,?, false, false); ";
+		   String sqlfinal = sql;
+		   if (type ==0)
+	   		{
+			   if (modality == 0)
+		   			sqlfinal.concat(sqlSuffix);
+		   			//sqlfinal=sqlfinal + sqlSuffix;
+		   		else
+		   			sqlfinal.concat( " * c." + cost_mod + " "+sqlSuffix);
+	   			ps = this.mainconn.prepareStatement(sqlfinal);
+	   			ps.setInt(1,nodeA);
+	   			ps.setInt(2,nodeB);
+	   		}
+	   		else
+	   		{
+	   			if (modality == 0)
+		   			sqlfinal.concat(sqlSuffix);
+	   			else
+		   			sqlfinal.concat( " * c." + cost_mod + " "+ sqlSuffixType);
+	   			ps = this.mainconn.prepareStatement(sqlfinal);
+	   			ps.setInt(2,nodeA);
+	   			ps.setInt(3,nodeB); 
+	   			ps.setInt(1,type);
+	   		}
+	   }
+	   ResultSet rs = ps.executeQuery();
+	   geoJSON = createGeoJSONfromRecords(rs);
 	   ps.close();
 	   rs.close();
 	   return geoJSON;
@@ -581,62 +699,11 @@ public class RouteDbConnection {
    }
    
    
+   
    private String geoJSONAvoidGeoJSONfromNodes(int nodeA,int nodeB,String geoJSONInput) throws SQLException
    {
 	   
-	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
-	   
-	    String jsonAvoidArea = geoJSONInput;
-	   /*String sql = "WITH data AS (SELECT '?'::json AS fc)" +
-			 "SELECT DISTINCT dip.id FROM (SELECT ST_Intersects(ST_SetSRid(areas.geom,4326),rl_2po_4pgr.geom_way) as inters ,rl_2po_4pgr.id  FROM rl_2po_4pgr," +
-			 "(SELECT row_number() OVER () AS gid,ST_GeomFromGeoJSON(feat->>'geometry') AS geom" +
-			 "FROM (SELECT json_array_elements(fc->'features') AS feat FROM data) AS f )AS areas)AS dip WHERE dip.inters= 't'";
-	   */
-	   String sql = "SELECT seq, id1 AS node, id2 AS edge, cost FROM pgr_dijkstra"+
-	   "('WITH data AS (SELECT ''?''::json AS fc)"+
-	   "SELECT roads.id AS id,source::integer,target::integer,cost::double precision AS cost,geom_way FROM rl_2po_4pgr as roads"+  
-	   "left join (SELECT row_number() OVER () AS gid,"+
-	   "ST_GeomFromGeoJSON(feat->>''geometry'') AS geom FROM (SELECT json_array_elements(fc->''features'') AS feat FROM data) AS f )AS areas"+
-	   "ON ST_Intersects(roads.geom_way,ST_SetSRid(areas.geom,4326)) WHERE areas.gid IS NULL',1034,1235, false, false); "; 
-	    
-	    
-	   PreparedStatement ps = this.mainconn.prepareStatement(sql);
-	   ps.setString(1, jsonAvoidArea);
-	   ps.setInt(1,nodeA);
-	   ps.setInt(2,nodeB);
-	   
-	   ResultSet rs = ps.executeQuery();
-	   
-	   while ( rs.next() ) {
-	          int id = rs.getInt("seq");
-	          String  node = rs.getString("node");
-	          String  edge = rs.getString("edge");
-	          int node_num = Integer.parseInt(node);
-	          int edge_num = Integer.parseInt(edge);
-	          String sqlgeoJSON = "SELECT ST_AsGeoJSON(geom_way) FROM rl_2po_4pgr WHERE source = ? AND id = ? UNION SELECT ST_AsGeoJSON(ST_Reverse(geom_way)) FROM rl_2po_4pgr WHERE target = ? AND id = ?;";
-	          PreparedStatement psgeoJSON = this.mainconn.prepareStatement(sqlgeoJSON);
-	          psgeoJSON.setInt(1,node_num);
-	          psgeoJSON.setInt(2,edge_num);
-	          psgeoJSON.setInt(3,node_num);
-	          psgeoJSON.setInt(4,edge_num);
-	          ResultSet rsgeoJSON = psgeoJSON.executeQuery();
-	          while (rsgeoJSON.next())
-	          {
-	       	   	String JSONstreet = rsgeoJSON.getString("st_asgeojson");
-	       	   	if (rs.isLast())
-	       	   		geoJSON = geoJSON + JSONstreet;
-	       	   	else
-	       	   		geoJSON = geoJSON + JSONstreet +",";
-	          }
-	          //float salary = rs.getFloat("salary");
-	          rsgeoJSON.close();
-	          psgeoJSON.close();
-	       }
-	   rs.close();
-       ps.close();
-	   geoJSON = geoJSON + " ] }";
-	   
-	   return geoJSON;
+	   return geoJSONAvoidGeoJSONfromNodes(nodeA,nodeB,geoJSONInput,0);
 	   
 	   
    }
@@ -644,8 +711,8 @@ public class RouteDbConnection {
    private String geoJSONAvoidGeoJSONfromNodes(int nodeA,int nodeB,String geoJSONInput,int modality) throws SQLException
    {
 	   
-	   updateCost(modality);
-	   String geoJSON = "{ \"type\": \"GeometryCollection\",\"geometries\": [";
+	   String cost_mod = setCost(modality);
+	   String geoJSON ;
 	   
 	    String jsonAvoidArea = "''" + geoJSONInput + "''";
 	   /*String sql = "WITH data AS (SELECT '?'::json AS fc)" +
@@ -665,32 +732,7 @@ public class RouteDbConnection {
 	   ps.setInt(2,nodeB);
 	   
 	   ResultSet rs = ps.executeQuery();
-	   
-	   while ( rs.next() ) {
-	          int id = rs.getInt("seq");
-	          String  node = rs.getString("node");
-	          String  edge = rs.getString("edge");
-	          int node_num = Integer.parseInt(node);
-	          int edge_num = Integer.parseInt(edge);
-	          String sqlgeoJSON = "SELECT ST_AsGeoJSON(geom_way) FROM rl_2po_4pgr WHERE source = ? AND id = ? UNION SELECT ST_AsGeoJSON(ST_Reverse(geom_way)) FROM rl_2po_4pgr WHERE target = ? AND id = ?;";
-	          PreparedStatement psgeoJSON = this.mainconn.prepareStatement(sqlgeoJSON);
-	          psgeoJSON.setInt(1,node_num);
-	          psgeoJSON.setInt(2,edge_num);
-	          psgeoJSON.setInt(3,node_num);
-	          psgeoJSON.setInt(4,edge_num);
-	          ResultSet rsgeoJSON = psgeoJSON.executeQuery();
-	          while (rsgeoJSON.next())
-	          {
-	       	   	String JSONstreet = rsgeoJSON.getString("st_asgeojson");
-	       	   	if (rs.isLast())
-	       	   		geoJSON = geoJSON + JSONstreet;
-	       	   	else
-	       	   		geoJSON = geoJSON + JSONstreet +",";
-	          }
-	          rsgeoJSON.close();
-	          psgeoJSON.close();
-	       }
-	   geoJSON = geoJSON + " ] }";
+	   geoJSON = createGeoJSONfromRecords(rs);
 	   ps.close();
 	   rs.close();
 	   
@@ -698,8 +740,6 @@ public class RouteDbConnection {
 	   
 	   
    }
-   
-   
    
    
    //TODO String makeGeoJSONfromRoadID( String road_id )
@@ -791,49 +831,6 @@ public class RouteDbConnection {
        return route;
    }
    
-   public void recordLandSlideonDB(InputStream getfeaureXML) throws ParserConfigurationException, SAXException, IOException, TransformerFactoryConfigurationError, TransformerException, SQLException
-   {
-	   
-	   InputStream getfeatureXML = getfeaureXML;
-	   ParserGetFeat pgf = new ParserGetFeat(getfeatureXML,lifeDatasetsLSIntervention);
-	   //pgf.test();
-	   
-	   //foreach gmlfeature
-	   if (pgf.type.equals("Life:landslide_H_RL"))
-	   {
-		   String addRecPericoloFrane = "INSERT INTO pericolo_frane VALUES('?','?','?','?');";
-		   while (!pgf.readed)
-		   {
-			   PreparedStatement ps = this.mainconn.prepareStatement(addRecPericoloFrane);
-			   ps.setInt(1, pgf.GMLGetNextIDSusce());
-			   ps.setString(2, pgf.GMLGetNextClass());
-			   ps.setString(3, pgf.GMLGetNextBacino());
-			   ps.setString(4,pgf.GMLGetNextGeometry());
-			   ps.executeUpdate();
-			   
-		   }
-	   
-	   }
-	   else
-	   {
-		   String addRecFrane = "INSERT INTO frane VALUES(?,ST_geomFromGML(?),?,?,?,?);";
-		   while (!pgf.readed)
-		   {
-			   PreparedStatement ps = this.mainconn.prepareStatement(addRecFrane);
-			   ps.setDouble(3, pgf.GMLGetNextID());
-			   ps.setString(5, pgf.GMLNextGetComune());
-			   ps.setInt(1, pgf.GMLGetNextIdFrana());
-			   ps.setString(2,pgf.GMLGetNextGeometry());
-			   ps.setInt(4,pgf.GMLGetNextTipoFrana());
-			   ps.setString(6,pgf.GMLNextGetOrigin());
-			   ps.executeUpdate();
-			   pgf.goForward();
-		   }
-		   
-		  
-	   }
-	   
-   }
    
    
    public InputStream requestGetFeatureXML(String request)
@@ -856,7 +853,7 @@ public class RouteDbConnection {
 	   return xml;
    }
    
-   public String getGeometryRoadsLanslided(RouteDbConnection.BoundingBox bb)
+   public String getGeometryRoadsLanslided(RouteDbInterface.BoundingBox bb)
    {
 	   String request = "http://lifeimagine.graphitech-projects.com/geoserver/Life/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=Life:landslide_I_RL&CQL_FILTER=BBOX(the_geom,"+ bb.left + "," + bb.lower + "," + bb.right +"," + bb.upper +")";
 	   String geoJSON = "";
